@@ -1,3 +1,20 @@
+// slurp s3 bucket enumerator
+// Copyright (C) 2017 8c30ff1057d69a6a6f6dc2212d8ec25196c542acb8620eb4148318a4b10dd131
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+
 package main
 
 import (
@@ -241,6 +258,13 @@ func CheckPermutations() {
 			resp, err1 := client.Do(req)
 
 			if err1 != nil {
+				if strings.Contains(err1.Error(), "timeout") {
+					fmt.Println(err1)
+					permutatedQ.Put(pd)
+					<-sem
+					return
+				}
+
 				log.Error(err1)
 				permutatedQ.Put(pd)
 				<-sem
@@ -271,12 +295,12 @@ func CheckPermutations() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					log.Infof("PUBLIC: %s (http://%s.%s)", pd.Domain.Domain, pd.Domain.Suffix)
+					log.Infof("\033[32m\033[1mPUBLIC\033[39m\033[0m %s (\033[33mhttp://%s.%s\033[39m)", loc, pd.Domain.Domain, pd.Domain.Suffix)
 				} else if resp.StatusCode == 403 {
-					log.Infof("FORBIDDEN: http://%s (http://%s.%s)", pd.Permutation, pd.Domain.Domain, pd.Domain.Suffix)
+					log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m http://%s (\033[33mhttp://%s.%s\033[39m)", pd.Permutation, pd.Domain.Domain, pd.Domain.Suffix)
 				}
 			} else if resp.StatusCode == 403 {
-				log.Infof("FORBIDDEN: http://%s (http://%s.%s)", pd.Permutation, pd.Domain.Domain, pd.Domain.Suffix)
+				log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m http://%s (\033[33mhttp://%s.%s\033[39m)", pd.Permutation, pd.Domain.Domain, pd.Domain.Suffix)
 			} else if resp.StatusCode == 503 {
 				log.Info("too fast")
 				permutatedQ.Put(pd)
