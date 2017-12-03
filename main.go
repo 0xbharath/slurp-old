@@ -599,6 +599,7 @@ func main() {
 			}
 
 			if permutatedQ.Len() == 0 || dbQ.Len() > 0 {
+				time.Sleep(1 * time.Second)
 				exit = true
 			}
 
