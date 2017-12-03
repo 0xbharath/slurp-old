@@ -259,7 +259,6 @@ func CheckPermutations() {
 
 			if err1 != nil {
 				if strings.Contains(err1.Error(), "timeout") {
-					fmt.Println(err1)
 					permutatedQ.Put(pd)
 					<-sem
 					return
