@@ -1,4 +1,4 @@
-# coolAF
+# slurp
 Enumerates S3 buckets manually or via certstream
 
 ## Overview
