@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/CaliDog/certstream-go"
 	"github.com/joeguo/tldextract"
@@ -21,6 +24,8 @@ var permutatedQ *queue.Queue
 var extract *tldextract.TLDExtract
 var checked int64
 
+var action string
+
 type Domain struct {
 	CN     string
 	Domain string
@@ -30,6 +35,86 @@ type Domain struct {
 type PermutatedDomain struct {
 	Permutation string
 	Domain      Domain
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "slurp",
+	Short: "slurp",
+	Long:  `slurp`,
+	Run: func(cmd *cobra.Command, args []string) {
+		action = "NADA"
+	},
+}
+
+var certstreamCmd = &cobra.Command{
+	Use:   "certstream",
+	Short: "Uses certstream to find s3 buckets in real-time",
+	Long:  "Uses certstream to find s3 buckets in real-time",
+	Run: func(cmd *cobra.Command, args []string) {
+		action = "CERTSTREAM"
+	},
+}
+
+var manualCmd = &cobra.Command{
+	Use:   "domain",
+	Short: "Takes a domain as input and attempts to find its s3 buckets",
+	Long:  "Takes a domain as input and attempts to find its s3 buckets",
+	Run: func(cmd *cobra.Command, args []string) {
+		action = "MANUAL"
+	},
+}
+
+var (
+	cfgDomain string
+)
+
+func setFlags() {
+	manualCmd.PersistentFlags().StringVar(&cfgDomain, "domain", "", "Domain to enumerate s3 bucks with")
+}
+
+// PreInit initializes goroutine concurrency and initializes cobra
+func PreInit() {
+	setFlags()
+
+	helpCmd := rootCmd.HelpFunc()
+
+	var helpFlag bool
+
+	newHelpCmd := func(c *cobra.Command, args []string) {
+		helpFlag = true
+		helpCmd(c, args)
+	}
+	rootCmd.SetHelpFunc(newHelpCmd)
+
+	// certstreamCmd command help
+	helpCertstreamCmd := certstreamCmd.HelpFunc()
+	newCertstreamHelpCmd := func(c *cobra.Command, args []string) {
+		helpFlag = true
+		helpCertstreamCmd(c, args)
+	}
+	certstreamCmd.SetHelpFunc(newCertstreamHelpCmd)
+
+	// manualCmd command help
+	helpManualCmd := manualCmd.HelpFunc()
+	newManualHelpCmd := func(c *cobra.Command, args []string) {
+		helpFlag = true
+		helpManualCmd(c, args)
+	}
+	manualCmd.SetHelpFunc(newManualHelpCmd)
+
+	// Add subcommands
+	rootCmd.AddCommand(certstreamCmd)
+	rootCmd.AddCommand(manualCmd)
+
+	err := rootCmd.Execute()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if helpFlag {
+		os.Exit(0)
+	}
 }
 
 // StreamCerts takes input from certstream and stores it in the queue
@@ -126,11 +211,7 @@ func CheckPermutations() {
 			log.Error(err)
 		}
 
-		domain := dom[0].(PermutatedDomain).Permutation
-
-		//log.Infof("%d", permutatedQ.Len())
-
-		go func(host string) {
+		go func(pd PermutatedDomain) {
 			tr := &http.Transport{
 				IdleConnTimeout:       3 * time.Second,
 				ResponseHeaderTimeout: 3 * time.Second,
@@ -149,19 +230,19 @@ func CheckPermutations() {
 					log.Error(err)
 				}
 
-				permutatedQ.Put(dom[0])
+				permutatedQ.Put(pd)
 				<-sem
 				return
 			}
 
-			req.Host = host
+			req.Host = pd.Permutation
 			//req.Header.Add("Host", host)
 
 			resp, err1 := client.Do(req)
 
 			if err1 != nil {
 				log.Error(err1)
-				permutatedQ.Put(dom[0])
+				permutatedQ.Put(pd)
 				<-sem
 				return
 			}
@@ -190,19 +271,21 @@ func CheckPermutations() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					log.Infof("PUBLIC: %s (http://%s.%s)", loc, dom[0].(PermutatedDomain).Domain.Domain, dom[0].(PermutatedDomain).Domain.Suffix)
+					log.Infof("PUBLIC: %s (http://%s.%s)", pd.Domain.Domain, pd.Domain.Suffix)
+				} else if resp.StatusCode == 403 {
+					log.Infof("FORBIDDEN: http://%s (http://%s.%s)", pd.Permutation, pd.Domain.Domain, pd.Domain.Suffix)
 				}
 			} else if resp.StatusCode == 403 {
-				log.Infof("FORBIDDEN: http://%s (http://%s.%s)", host, dom[0].(PermutatedDomain).Domain.Domain, dom[0].(PermutatedDomain).Domain.Suffix)
+				log.Infof("FORBIDDEN: http://%s (http://%s.%s)", pd.Permutation, pd.Domain.Domain, pd.Domain.Suffix)
 			} else if resp.StatusCode == 503 {
 				log.Info("too fast")
-				permutatedQ.Put(host)
+				permutatedQ.Put(pd)
 			}
 
 			checked = checked + 1
 
 			<-sem
-		}(domain)
+		}(dom[0].(PermutatedDomain))
 	}
 }
 
@@ -452,28 +535,78 @@ func PrintJob() {
 }
 
 func main() {
-	log.Info("Initializing....")
-	Init()
+	PreInit()
 
-	//go PrintJob()
+	switch action {
+	case "CERTSTREAM":
+		log.Info("Initializing....")
+		Init()
 
-	log.Info("Starting to stream certs....")
-	go StreamCerts()
+		//go PrintJob()
 
-	log.Info("Starting to process queue....")
-	go ProcessQueue()
+		log.Info("Starting to stream certs....")
+		go StreamCerts()
 
-	//log.Info("Starting to stream certs....")
-	go StoreInDB()
+		log.Info("Starting to process queue....")
+		go ProcessQueue()
 
-	log.Info("Starting to process permutations....")
-	go CheckPermutations()
+		//log.Info("Starting to stream certs....")
+		go StoreInDB()
 
-	for {
-		if exit {
-			break
+		log.Info("Starting to process permutations....")
+		go CheckPermutations()
+
+		for {
+			if exit {
+				break
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+	case "MANUAL":
+		if cfgDomain == "" {
+			log.Fatal("You must specify a domain to enumerate")
 		}
 
-		time.Sleep(1 * time.Second)
+		Init()
+
+		result := extract.Extract(cfgDomain)
+
+		if result.Root == "" || result.Tld == "" {
+			log.Fatal("Is the domain even valid bruh?")
+		}
+
+		d := Domain{
+			CN:     cfgDomain,
+			Domain: result.Root,
+			Suffix: result.Tld,
+		}
+
+		dbQ.Put(d)
+
+		log.Info("Starting to process queue....")
+		go ProcessQueue()
+
+		//log.Info("Starting to stream certs....")
+		go StoreInDB()
+
+		log.Info("Starting to process permutations....")
+		go CheckPermutations()
+
+		for {
+			if exit {
+				break
+			}
+
+			if permutatedQ.Len() == 0 || dbQ.Len() > 0 {
+				exit = true
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+
+	case "NADA":
+		log.Info("Check help")
+		os.Exit(0)
 	}
 }
