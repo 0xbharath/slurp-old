@@ -18,6 +18,7 @@ Enumerates S3 buckets manually or via certstream
 - Manual mode so that you can test individual domains.
 - Certstream mode so that you can enumerate s3 buckets in real time.
 - Colorized output for visual grep ;)
+- Currently generates over 400 permutations per domain
 
 ## Usage
 - `slurp domain --domain google.com` will enumerate the S3 domains for a specific target.
