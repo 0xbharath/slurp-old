@@ -1,2 +1,8 @@
 tld.cache
 slurp
+slurp-macos
+slurp-linux-amd64
+slurp-macos-amd64
+slurp-windows-386
+slurp-windows-amd64
+slurp.exe
