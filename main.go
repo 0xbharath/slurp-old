@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
@@ -177,7 +176,7 @@ func ProcessQueue() {
 
 		//log.Infof("Domain: %s", cn[0].(string))
 
-		if !strings.Contains(cn[0].(string), "cloudflaressl") && !strings.Contains(cn[0].(string), "xn--") && len(cn[0].(string)) > 0 && !strings.HasPrefix(cn[0].(string), "*.") {
+		if !strings.Contains(cn[0].(string), "cloudflaressl") && !strings.Contains(cn[0].(string), "xn--") && len(cn[0].(string)) > 0 && !strings.HasPrefix(cn[0].(string), "*.") && !strings.HasPrefix(cn[0].(string), ".") {
 			result := extract.Extract(cn[0].(string))
 			//domain := fmt.Sprintf("%s.%s", result.Root, result.Tld)
 
@@ -220,7 +219,7 @@ func StoreInDB() {
 }
 
 func CheckPermutations() {
-	var max = runtime.NumCPU() * runtime.NumCPU()
+	var max = 125
 	sem := make(chan int, max)
 
 	for {
@@ -231,22 +230,25 @@ func CheckPermutations() {
 			log.Error(err)
 		}
 
+		tr := &http.Transport{
+			IdleConnTimeout:       3 * time.Second,
+			ResponseHeaderTimeout: 3 * time.Second,
+			MaxIdleConnsPerHost:   max,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+		client := &http.Client{
+			Transport: tr,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
 		go func(pd PermutatedDomain) {
-			tr := &http.Transport{
-				IdleConnTimeout:       3 * time.Second,
-				ResponseHeaderTimeout: 3 * time.Second,
-			}
-			client := &http.Client{
-				Transport: tr,
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					return http.ErrUseLastResponse
-				},
-			}
 
 			req, err := http.NewRequest("GET", "http://s3-1-w.amazonaws.com", nil)
 
 			if err != nil {
-				if !strings.Contains(err.Error(), "timeout") {
+				if !strings.Contains(err.Error(), "time") {
 					log.Error(err)
 				}
 
@@ -261,7 +263,7 @@ func CheckPermutations() {
 			resp, err1 := client.Do(req)
 
 			if err1 != nil {
-				if strings.Contains(err1.Error(), "timeout") {
+				if strings.Contains(err1.Error(), "time") {
 					permutatedQ.Put(pd)
 					<-sem
 					return
@@ -289,7 +291,7 @@ func CheckPermutations() {
 				resp, err1 := client.Do(req)
 
 				if err1 != nil {
-					if !strings.Contains(err1.Error(), "timeout") {
+					if !strings.Contains(err1.Error(), "time") {
 						log.Error(err1)
 					}
 				}
