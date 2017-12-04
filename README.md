@@ -23,7 +23,7 @@ Enumerates S3 buckets manually or via certstream
 ## Usage
 - `slurp domain --domain google.com` will enumerate the S3 domains for a specific target.
 - `slurp certstream` will follow certstream and enumerate S3 buckets from each domain.
-- `permutations.json` stores the permutations that are used by the program; they are in JSON format and loaded during execution **this is required**; it assumes a specific format per permutation: `anything_you_want.%s`; the ending `.%s` is **required** otherwise the AWS S3 URL will not be attached to it, and therefore no results will come from S3 enumeration.
+- `permutations.json` stores the permutations that are used by the program; they are in JSON format and loaded during execution **this is required**; it assumes a specific format per permutation: `anything_you_want.%s`; the ending `.%s` is **required** otherwise the AWS S3 URL will not be attached to it, and therefore no results will come from S3 enumeration. If you need flexible permutations then you have to [edit the source](https://github.com/bbb31/slurp/blob/master/main.go#L361).
 
 ## Installation
 - Download from Releases section, or build yourself with `go build` or `build.sh`.
