@@ -42,7 +42,7 @@ var dbQ *queue.Queue
 var permutatedQ *queue.Queue
 var extract *tldextract.TLDExtract
 var checked int64
-
+var sem chan int
 var action string
 
 type Domain struct {
@@ -220,7 +220,7 @@ func StoreInDB() {
 
 func CheckPermutations() {
 	var max = 125
-	sem := make(chan int, max)
+	sem = make(chan int, max)
 
 	for {
 		sem <- 1
@@ -291,9 +291,16 @@ func CheckPermutations() {
 				resp, err1 := client.Do(req)
 
 				if err1 != nil {
-					if !strings.Contains(err1.Error(), "time") {
-						log.Error(err1)
+					if strings.Contains(err1.Error(), "time") {
+						permutatedQ.Put(pd)
+						<-sem
+						return
 					}
+
+					log.Error(err1)
+					permutatedQ.Put(pd)
+					<-sem
+					return
 				}
 
 				defer resp.Body.Close()
@@ -434,8 +441,8 @@ func main() {
 
 		dbQ.Put(d)
 
-		log.Info("Starting to process queue....")
-		go ProcessQueue()
+		//log.Info("Starting to process queue....")
+		//go ProcessQueue()
 
 		//log.Info("Starting to stream certs....")
 		go StoreInDB()
@@ -448,12 +455,15 @@ func main() {
 				break
 			}
 
-			if permutatedQ.Len() == 0 || dbQ.Len() > 0 {
+			if permutatedQ.Len() != 0 || dbQ.Len() > 0 || len(sem) > 0 {
 				time.Sleep(1 * time.Second)
+
+				if len(sem) == 1 {
+					<-sem
+				}
+			} else {
 				exit = true
 			}
-
-			time.Sleep(1 * time.Second)
 		}
 
 	case "NADA":
