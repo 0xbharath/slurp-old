@@ -14,7 +14,6 @@ Enumerates S3 buckets manually or via certstream
     - It's faster than python
     - No dependency hell and version locks (ie python 3 and requirements.txt, etc)
     - Better concurrency
-    - Static binary that you can use on any ELF64 linux
 - Manual mode so that you can test individual domains.
 - Certstream mode so that you can enumerate s3 buckets in real time.
 - Colorized output for visual grep ;)
@@ -27,7 +26,7 @@ Enumerates S3 buckets manually or via certstream
 - `permutations.json` stores the permutations that are used by the program; they are in JSON format and loaded during execution **This is required**.
 
 ## Installation
-- Download from Releases section, or build yourself with `go build`.
+- Download from Releases section, or build yourself with `go build` or `build.sh`.
 
 ## License
 - AGPLv3
