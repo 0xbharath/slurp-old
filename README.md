@@ -3,6 +3,7 @@ Enumerates S3 buckets manually or via certstream
 
 ## Overview
 - First of all, credit to https://github.com/eth0izzle/bucket-stream for the certstream idea
+- Also, credit to all the vendor packages that made this tool possible
 - Not responsible for how you use this tool.
 
 ![certstream](https://i.imgur.com/6JUDNI5.png)
@@ -19,6 +20,7 @@ Enumerates S3 buckets manually or via certstream
 - Colorized output for visual grep ;)
 - Currently generates over 400 permutations per domain
 - `StoreInDB` which will eventually be used to push data to a database
+- Strong copyleft license
 
 ## Usage
 - `slurp domain --domain google.com` will enumerate the S3 domains for a specific target.
