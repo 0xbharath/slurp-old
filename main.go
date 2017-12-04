@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -218,8 +219,9 @@ func StoreInDB() {
 	}
 }
 
+// CheckPermutations runs through all permutations checking them for PUBLIC/FORBIDDEN buckets
 func CheckPermutations() {
-	var max = 125
+	var max = runtime.NumCPU() * 10
 	sem = make(chan int, max)
 
 	for {
@@ -380,6 +382,7 @@ func Init() {
 	}
 }
 
+// PrintJob prints the queue sizes
 func PrintJob() {
 	for {
 		log.Infof("dQ size: %d", dQ.Len())
@@ -451,13 +454,16 @@ func main() {
 		go CheckPermutations()
 
 		for {
+			// 3 second hard sleep; added because sometimes it's possible to switch exit = true
+			// in the time it takes to get from dbQ.Put(d); we can't have that...
+			// So, a 3 sec sleep will prevent an pre-mature exit; but in most cases shouldn't really be noticable
+			time.Sleep(3 * time.Second)
+
 			if exit {
 				break
 			}
 
 			if permutatedQ.Len() != 0 || dbQ.Len() > 0 || len(sem) > 0 {
-				time.Sleep(1 * time.Second)
-
 				if len(sem) == 1 {
 					<-sem
 				}
