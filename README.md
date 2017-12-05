@@ -15,7 +15,7 @@ Enumerates S3 buckets manually or via certstream
     - It's faster than python
     - No dependency hell and version locks (ie python 3 and requirements.txt, etc)
     - Better concurrency
-    - Punycode support for internationalized domains
+    - Punycode support for internationalized domains (S3 doesn't allow internationalized buckets; so this app just notifies and skips (certstream) or exits (manual mode))
 - Manual mode so that you can test individual domains.
 - Certstream mode so that you can enumerate s3 buckets in real time.
 - Colorized output for visual grep ;)
