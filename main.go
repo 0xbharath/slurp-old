@@ -84,12 +84,11 @@ var manualCmd = &cobra.Command{
 	},
 }
 
-var (
-	cfgDomain string
-)
+var cfgDomain, permutationsFile string
 
 func setFlags() {
 	manualCmd.PersistentFlags().StringVar(&cfgDomain, "domain", "", "Domain to enumerate s3 bucks with")
+	manualCmd.PersistentFlags().StringVar(&permutationsFile, "permutations", "./permutations.json", "Permutations file location, default $PWD")
 }
 
 // PreInit initializes goroutine concurrency and initializes cobra
@@ -328,7 +327,11 @@ func CheckPermutations() {
 
 // PermutateDomain returns all possible domain permutations
 func PermutateDomain(domain, suffix string) []string {
-	jsondata, err := ioutil.ReadFile("./permutations.json")
+	if _, err := os.Stat(permutationsFile); err != nil {
+		log.Fatal(err)
+	}
+
+	jsondata, err := ioutil.ReadFile(permutationsFile)
 
 	if err != nil {
 		log.Fatal(err)
