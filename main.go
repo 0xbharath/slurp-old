@@ -32,6 +32,7 @@ import (
 	"github.com/CaliDog/certstream-go"
 	"github.com/jmoiron/jsonq"
 	"github.com/joeguo/tldextract"
+	"golang.org/x/net/idna"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/Workiva/go-datastructures/queue"
@@ -50,6 +51,7 @@ type Domain struct {
 	CN     string
 	Domain string
 	Suffix string
+	Raw    string
 }
 
 type PermutatedDomain struct {
@@ -179,13 +181,24 @@ func ProcessQueue() {
 		//log.Infof("Domain: %s", cn[0].(string))
 
 		if !strings.Contains(cn[0].(string), "cloudflaressl") && !strings.Contains(cn[0].(string), "xn--") && len(cn[0].(string)) > 0 && !strings.HasPrefix(cn[0].(string), "*.") && !strings.HasPrefix(cn[0].(string), ".") {
-			result := extract.Extract(cn[0].(string))
+			punyCfgDomain, err := idna.ToASCII(cn[0].(string))
+			if err != nil {
+				log.Error(err)
+			}
+
+			result := extract.Extract(punyCfgDomain)
 			//domain := fmt.Sprintf("%s.%s", result.Root, result.Tld)
 
 			d := Domain{
-				CN:     cn[0].(string),
+				CN:     punyCfgDomain,
 				Domain: result.Root,
 				Suffix: result.Tld,
+				Raw:    cn[0].(string),
+			}
+
+			if punyCfgDomain != cn[0].(string) {
+				log.Infof("%s is %s (punycode); AWS does not support internationalized buckets")
+				continue
 			}
 
 			dbQ.Put(d)
@@ -435,16 +448,28 @@ func main() {
 
 		Init()
 
-		result := extract.Extract(cfgDomain)
+		punyCfgDomain, err := idna.ToASCII(cfgDomain)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Infof("Domain %s is %s (punycode)", cfgDomain, punyCfgDomain)
+
+		if cfgDomain != punyCfgDomain {
+			log.Fatal("S3 buckets cannot be internationalized")
+		}
+
+		result := extract.Extract(punyCfgDomain)
 
 		if result.Root == "" || result.Tld == "" {
 			log.Fatal("Is the domain even valid bruh?")
 		}
 
 		d := Domain{
-			CN:     cfgDomain,
+			CN:     punyCfgDomain,
 			Domain: result.Root,
 			Suffix: result.Tld,
+			Raw:    cfgDomain,
 		}
 
 		dbQ.Put(d)
