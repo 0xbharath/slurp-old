@@ -30,6 +30,7 @@ Enumerates S3 buckets manually or via certstream
 
 ## Installation
 - Download from Releases section, or build yourself with `go build` or `build.sh`.
+    - **Make sure you clone to `$GOPATH/src` or you will get build errors!**
 
 ## License
 - AGPLv3
