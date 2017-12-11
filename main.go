@@ -197,7 +197,7 @@ func ProcessQueue() {
 			}
 
 			if punyCfgDomain != cn[0].(string) {
-				log.Infof("%s is %s (punycode); AWS does not support internationalized buckets")
+				log.Infof("%s is %s (punycode); AWS does not support internationalized buckets", cn[0].(string), punyCfgDomain)
 				continue
 			}
 
