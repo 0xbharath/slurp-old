@@ -77,7 +77,7 @@ var certstreamCmd = &cobra.Command{
 	},
 }
 
-var manualCmd = &cobra.Command{
+var domainCmd = &cobra.Command{
 	Use:   "domain",
 	Short: "Takes a domain as input and attempts to find its s3 buckets",
 	Long:  "Takes a domain as input and attempts to find its s3 buckets",
@@ -91,8 +91,8 @@ var cfgDomain, cfgPermutationsFile string
 func setFlags() {
 	certstreamCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 
-	manualCmd.PersistentFlags().StringVarP(&cfgDomain, "target", "t", "", "Domain to enumerate s3 buckets with")
-	manualCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
+	domainCmd.PersistentFlags().StringVarP(&cfgDomain, "target", "t", "", "Domain to enumerate s3 buckets with")
+	domainCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 }
 
 // PreInit initializes goroutine concurrency and initializes cobra
@@ -117,17 +117,17 @@ func PreInit() {
 	}
 	certstreamCmd.SetHelpFunc(newCertstreamHelpCmd)
 
-	// manualCmd command help
-	helpManualCmd := manualCmd.HelpFunc()
+	// domainCmd command help
+	helpDomainCmd := domainCmd.HelpFunc()
 	newManualHelpCmd := func(c *cobra.Command, args []string) {
 		helpFlag = true
-		helpManualCmd(c, args)
+		helpDomainCmd(c, args)
 	}
-	manualCmd.SetHelpFunc(newManualHelpCmd)
+	domainCmd.SetHelpFunc(newManualHelpCmd)
 
 	// Add subcommands
 	rootCmd.AddCommand(certstreamCmd)
-	rootCmd.AddCommand(manualCmd)
+	rootCmd.AddCommand(domainCmd)
 
 	err := rootCmd.Execute()
 
