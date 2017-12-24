@@ -131,11 +131,11 @@ func PreInit() {
 
 	// domainCmd command help
 	helpDomainCmd := domainCmd.HelpFunc()
-	newManualHelpCmd := func(c *cobra.Command, args []string) {
+	newDomainHelpCmd := func(c *cobra.Command, args []string) {
 		helpFlag = true
 		helpDomainCmd(c, args)
 	}
-	domainCmd.SetHelpFunc(newManualHelpCmd)
+	domainCmd.SetHelpFunc(newDomainHelpCmd)
 
 	// keywordCmd command help
 	helpKeywordCmd := keywordCmd.HelpFunc()
