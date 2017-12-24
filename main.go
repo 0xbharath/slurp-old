@@ -229,8 +229,8 @@ func ProcessQueue() {
 	}
 }
 
-// StoreInDB stores the dbQ results into the database
-func StoreInDB() {
+// PermutateDomainRunner stores the dbQ results into the database
+func PermutateDomainRunner() {
 	for {
 		dstruct, err := dbQ.Get(1)
 
@@ -361,8 +361,8 @@ func CheckPermutations() {
 	}
 }
 
-// Permutate returns all possible term permutations
-func Permutate(term, suffix string) []string {
+// Permutate returns all possible domain permutations
+func Permutate(domain, suffix string) []string {
 	if _, err := os.Stat(cfgPermutationsFile); err != nil {
 		log.Fatal(err)
 	}
@@ -394,12 +394,12 @@ func Permutate(term, suffix string) []string {
 
 	// Our list of permutations
 	for i := range perms {
-		permutations = append(permutations, fmt.Sprintf(perms[i].(string), term, s3url))
+		permutations = append(permutations, fmt.Sprintf(perms[i].(string), domain, s3url))
 	}
 
 	// Permutations that are not easily put into the list
-	permutations = append(permutations, fmt.Sprintf("%s.%s.%s", term, suffix, s3url))
-	permutations = append(permutations, fmt.Sprintf("%s.%s", strings.Replace(fmt.Sprintf("%s.%s", term, suffix), ".", "", -1), s3url))
+	permutations = append(permutations, fmt.Sprintf("%s.%s.%s", domain, suffix, s3url))
+	permutations = append(permutations, fmt.Sprintf("%s.%s", strings.Replace(fmt.Sprintf("%s.%s", domain, suffix), ".", "", -1), s3url))
 
 	return permutations
 }
@@ -450,7 +450,7 @@ func main() {
 		go ProcessQueue()
 
 		//log.Info("Starting to stream certs....")
-		go StoreInDB()
+		go PermutateDomainRunner()
 
 		log.Info("Starting to process permutations....")
 		go CheckPermutations()
@@ -499,7 +499,7 @@ func main() {
 		//go ProcessQueue()
 
 		//log.Info("Starting to stream certs....")
-		go StoreInDB()
+		go PermutateDomainRunner()
 
 		log.Info("Starting to process permutations....")
 		go CheckPermutations()
@@ -531,7 +531,7 @@ func main() {
 		}
 
 		//log.Info("Starting to stream certs....")
-		go StoreInDB()
+		go PermutateDomainRunner()
 
 		log.Info("Starting to process permutations....")
 		go CheckPermutations()
