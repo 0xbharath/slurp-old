@@ -243,7 +243,7 @@ func StoreInDB() {
 
 		//log.Infof("CN: %s\tDomain: %s.%s", d.CN, d.Domain, d.Suffix)
 
-		pd := PermutateDomain(d.Domain, d.Suffix)
+		pd := Permutate(d.Domain, d.Suffix)
 
 		for p := range pd {
 			permutatedQ.Put(PermutatedDomain{
@@ -361,8 +361,8 @@ func CheckPermutations() {
 	}
 }
 
-// PermutateDomain returns all possible domain permutations
-func PermutateDomain(domain, suffix string) []string {
+// Permutate returns all possible term permutations
+func Permutate(term, suffix string) []string {
 	if _, err := os.Stat(cfgPermutationsFile); err != nil {
 		log.Fatal(err)
 	}
@@ -394,12 +394,12 @@ func PermutateDomain(domain, suffix string) []string {
 
 	// Our list of permutations
 	for i := range perms {
-		permutations = append(permutations, fmt.Sprintf(perms[i].(string), domain, s3url))
+		permutations = append(permutations, fmt.Sprintf(perms[i].(string), term, s3url))
 	}
 
 	// Permutations that are not easily put into the list
-	permutations = append(permutations, fmt.Sprintf("%s.%s.%s", domain, suffix, s3url))
-	permutations = append(permutations, fmt.Sprintf("%s.%s", strings.Replace(fmt.Sprintf("%s.%s", domain, suffix), ".", "", -1), s3url))
+	permutations = append(permutations, fmt.Sprintf("%s.%s.%s", term, suffix, s3url))
+	permutations = append(permutations, fmt.Sprintf("%s.%s", strings.Replace(fmt.Sprintf("%s.%s", term, suffix), ".", "", -1), s3url))
 
 	return permutations
 }
@@ -524,8 +524,36 @@ func main() {
 		}
 
 	case "KEYWORD":
-		log.Info("Keywords!")
-		os.Exit(0)
+		Init()
+
+		for i := range cfgKeywords {
+			dbQ.Put(cfgKeywords[i])
+		}
+
+		//log.Info("Starting to stream certs....")
+		go StoreInDB()
+
+		log.Info("Starting to process permutations....")
+		go CheckPermutations()
+
+		for {
+			// 3 second hard sleep; added because sometimes it's possible to switch exit = true
+			// in the time it takes to get from dbQ.Put(d); we can't have that...
+			// So, a 3 sec sleep will prevent an pre-mature exit; but in most cases shouldn't really be noticable
+			time.Sleep(3 * time.Second)
+
+			if exit {
+				break
+			}
+
+			if permutatedQ.Len() != 0 || dbQ.Len() > 0 || len(sem) > 0 {
+				if len(sem) == 1 {
+					<-sem
+				}
+			} else {
+				exit = true
+			}
+		}
 	case "NADA":
 		log.Info("Check help")
 		os.Exit(0)
