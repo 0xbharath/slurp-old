@@ -86,13 +86,25 @@ var domainCmd = &cobra.Command{
 	},
 }
 
+var keywordCmd = &cobra.Command{
+	Use:   "keyword",
+	Short: "Takes keywords as input and attempts to find s3 buckets",
+	Long:  "Takes keywords as input and attempts to find s3 buckets",
+	Run: func(cmd *cobra.Command, args []string) {
+		action = "KEYWORD"
+	},
+}
+
 var cfgDomain, cfgPermutationsFile string
+var cfgKeywords []string
 
 func setFlags() {
 	certstreamCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 
 	domainCmd.PersistentFlags().StringVarP(&cfgDomain, "target", "t", "", "Domain to enumerate s3 buckets with")
 	domainCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
+
+	keywordCmd.PersistentFlags().StringArrayVarP(&cfgKeywords, "target", "t", []string{}, "List of keywords to search for bucket permutations for")
 }
 
 // PreInit initializes goroutine concurrency and initializes cobra
@@ -125,9 +137,18 @@ func PreInit() {
 	}
 	domainCmd.SetHelpFunc(newManualHelpCmd)
 
+	// keywordCmd command help
+	helpKeywordCmd := keywordCmd.HelpFunc()
+	newKeywordHelpCmd := func(c *cobra.Command, args []string) {
+		helpFlag = true
+		helpKeywordCmd(c, args)
+	}
+	keywordCmd.SetHelpFunc(newKeywordHelpCmd)
+
 	// Add subcommands
 	rootCmd.AddCommand(certstreamCmd)
 	rootCmd.AddCommand(domainCmd)
+	rootCmd.AddCommand(keywordCmd)
 
 	err := rootCmd.Execute()
 
@@ -502,6 +523,9 @@ func main() {
 			}
 		}
 
+	case "KEYWORD":
+		log.Info("Keywords!")
+		os.Exit(0)
 	case "NADA":
 		log.Info("Check help")
 		os.Exit(0)
