@@ -6,9 +6,15 @@ Enumerates S3 buckets manually or via certstream
 - Also, credit to all the vendor packages that made this tool possible
 - Not responsible for how you use this tool.
 
-![certstream](https://i.imgur.com/6JUDNI5.png)
+### Modes
+#### Certstream
+![certstream](https://i.imgur.com/6CzEg7p.png)
 
-![manual](https://i.imgur.com/d28yX1Y.png)
+#### Domain
+![domain](https://i.imgur.com/p2wCqxu.png)
+
+#### Keywords
+![keyword](https://i.imgur.com/beGyx7K.png)
 
 ### Features
 - Written in Go:
@@ -17,12 +23,11 @@ Enumerates S3 buckets manually or via certstream
     - Better concurrency
     - Punycode support for internationalized domains (S3 doesn't allow internationalized buckets; so this app just notifies and skips (certstream) or exits (manual mode))
 - Domain mode so that you can test individual domains.
-- **New** Keywords mode so that you can attempt enumeration based on keywords.
+- **New** Keywords mode so that you can attempt enumeration based on keywords. Why is this useful? Sometimes organizations have shorthand names that they go by. If you wanted to test that shorthand name you could not do so previously; now you can by using this mode of enumeration.
 - **New** Supports a list of domains now.
 - Certstream mode so that you can enumerate s3 buckets in real time.
 - Colorized output for visual grep ;)
-- Currently generates over 400 permutations per domain
-- `StoreInDB` which will eventually be used to push data to a database
+- Currently generates over 1200 permutations per domain and keyword
 - Strong copyleft license
 
 ## Usage
