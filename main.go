@@ -100,13 +100,14 @@ var keywordCmd = &cobra.Command{
 	},
 }
 
-var cfgDomain, cfgPermutationsFile string
+var cfgPermutationsFile string
 var cfgKeywords []string
+var cfgDomains []string
 
 func setFlags() {
 	certstreamCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 
-	domainCmd.PersistentFlags().StringVarP(&cfgDomain, "target", "t", "", "Domain to enumerate s3 buckets with")
+	domainCmd.PersistentFlags().StringSliceVarP(&cfgDomains, "target", "t", []string{}, "Domains to enumerate s3 buckets with")
 	domainCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 
 	keywordCmd.PersistentFlags().StringSliceVarP(&cfgKeywords, "target", "t", []string{}, "List of keywords to search for bucket permutations for")
@@ -638,37 +639,38 @@ func main() {
 			time.Sleep(1 * time.Second)
 		}
 	case "MANUAL":
-		if cfgDomain == "" {
-			log.Fatal("You must specify a domain to enumerate")
-		}
-
 		Init()
 
-		punyCfgDomain, err := idna.ToASCII(cfgDomain)
-		if err != nil {
-			log.Fatal(err)
+		for i := range cfgDomains {
+			if len(cfgDomains[i]) != 0 {
+				punyCfgDomain, err := idna.ToASCII(cfgDomains[i])
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				log.Infof("Domain %s is %s (punycode)", cfgDomains[i], punyCfgDomain)
+
+				if cfgDomains[i] != punyCfgDomain {
+					log.Errorf("Internationalized domains cannot be S3 buckets (%s)", cfgDomains[i])
+					continue
+				}
+
+				result := extract.Extract(punyCfgDomain)
+
+				if result.Root == "" || result.Tld == "" {
+					log.Errorf("%s is not a valid domain", punyCfgDomain)
+				}
+
+				d := Domain{
+					CN:     punyCfgDomain,
+					Domain: result.Root,
+					Suffix: result.Tld,
+					Raw:    cfgDomains[i],
+				}
+
+				dbQ.Put(d)
+			}
 		}
-
-		log.Infof("Domain %s is %s (punycode)", cfgDomain, punyCfgDomain)
-
-		if cfgDomain != punyCfgDomain {
-			log.Fatal("S3 buckets cannot be internationalized")
-		}
-
-		result := extract.Extract(punyCfgDomain)
-
-		if result.Root == "" || result.Tld == "" {
-			log.Fatal("Is the domain even valid bruh?")
-		}
-
-		d := Domain{
-			CN:     punyCfgDomain,
-			Domain: result.Root,
-			Suffix: result.Tld,
-			Raw:    cfgDomain,
-		}
-
-		dbQ.Put(d)
 
 		//log.Info("Starting to process queue....")
 		//go ProcessQueue()
