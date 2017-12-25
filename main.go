@@ -104,7 +104,7 @@ func setFlags() {
 	domainCmd.PersistentFlags().StringVarP(&cfgDomain, "target", "t", "", "Domain to enumerate s3 buckets with")
 	domainCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 
-	keywordCmd.PersistentFlags().StringArrayVarP(&cfgKeywords, "target", "t", []string{}, "List of keywords to search for bucket permutations for")
+	keywordCmd.PersistentFlags().StringSliceVarP(&cfgKeywords, "target", "t", []string{}, "List of keywords to search for bucket permutations for")
 }
 
 // PreInit initializes goroutine concurrency and initializes cobra
@@ -243,13 +243,35 @@ func PermutateDomainRunner() {
 
 		//log.Infof("CN: %s\tDomain: %s.%s", d.CN, d.Domain, d.Suffix)
 
-		pd := Permutate(d.Domain, d.Suffix)
+		pd := PermutateDomain(d.Domain, d.Suffix)
 
 		for p := range pd {
 			permutatedQ.Put(PermutatedDomain{
 				Permutation: pd[p],
 				Domain:      d,
 			})
+		}
+	}
+}
+
+// PermutateKeywordRunner stores the dbQ results into the database
+func PermutateKeywordRunner() {
+	for {
+		dstruct, err := dbQ.Get(1)
+
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		var d string = dstruct[0].(string)
+
+		//log.Infof("CN: %s\tDomain: %s.%s", d.CN, d.Domain, d.Suffix)
+
+		pd := PermutateKeyword(d)
+
+		for p := range pd {
+			permutatedQ.Put(pd[p])
 		}
 	}
 }
@@ -361,8 +383,115 @@ func CheckPermutations() {
 	}
 }
 
-// Permutate returns all possible domain permutations
-func Permutate(domain, suffix string) []string {
+// CheckKeywordPermutations runs through all permutations checking them for PUBLIC/FORBIDDEN buckets
+func CheckKeywordPermutations() {
+	var max = runtime.NumCPU() * 10
+	sem = make(chan int, max)
+
+	for {
+		sem <- 1
+		dom, err := permutatedQ.Get(1)
+
+		if err != nil {
+			log.Error(err)
+		}
+
+		tr := &http.Transport{
+			IdleConnTimeout:       3 * time.Second,
+			ResponseHeaderTimeout: 3 * time.Second,
+			MaxIdleConnsPerHost:   max,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+		client := &http.Client{
+			Transport: tr,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		go func(pd string) {
+			//log.Info(pd)
+			req, err := http.NewRequest("GET", "http://s3-1-w.amazonaws.com", nil)
+
+			if err != nil {
+				if !strings.Contains(err.Error(), "time") {
+					log.Error(err)
+				}
+
+				permutatedQ.Put(pd)
+				<-sem
+				return
+			}
+
+			req.Host = pd
+			//req.Header.Add("Host", host)
+
+			resp, err1 := client.Do(req)
+
+			if err1 != nil {
+				if strings.Contains(err1.Error(), "time") {
+					permutatedQ.Put(pd)
+					<-sem
+					return
+				}
+
+				log.Error(err1)
+				permutatedQ.Put(pd)
+				<-sem
+				return
+			}
+
+			defer resp.Body.Close()
+
+			//log.Infof("%s (%d)", host, resp.StatusCode)
+
+			if resp.StatusCode == 307 {
+				loc := resp.Header.Get("Location")
+
+				req, err := http.NewRequest("GET", loc, nil)
+
+				if err != nil {
+					log.Error(err)
+				}
+
+				resp, err1 := client.Do(req)
+
+				if err1 != nil {
+					if strings.Contains(err1.Error(), "time") {
+						permutatedQ.Put(pd)
+						<-sem
+						return
+					}
+
+					log.Error(err1)
+					permutatedQ.Put(pd)
+					<-sem
+					return
+				}
+
+				defer resp.Body.Close()
+
+				if resp.StatusCode == 200 {
+					log.Infof("\033[32m\033[1mPUBLIC\033[39m\033[0m %s", loc)
+				} else if resp.StatusCode == 403 {
+					log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m http://%s", pd)
+				}
+			} else if resp.StatusCode == 403 {
+				log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m http://%s", pd)
+			} else if resp.StatusCode == 503 {
+				log.Info("too fast")
+				permutatedQ.Put(pd)
+			}
+
+			checked = checked + 1
+
+			<-sem
+		}(dom[0].(string))
+	}
+}
+
+// PermutateDomain returns all possible domain permutations
+func PermutateDomain(domain, suffix string) []string {
 	if _, err := os.Stat(cfgPermutationsFile); err != nil {
 		log.Fatal(err)
 	}
@@ -400,6 +529,45 @@ func Permutate(domain, suffix string) []string {
 	// Permutations that are not easily put into the list
 	permutations = append(permutations, fmt.Sprintf("%s.%s.%s", domain, suffix, s3url))
 	permutations = append(permutations, fmt.Sprintf("%s.%s", strings.Replace(fmt.Sprintf("%s.%s", domain, suffix), ".", "", -1), s3url))
+
+	return permutations
+}
+
+// PermutateKeyword returns all possible keyword permutations
+func PermutateKeyword(keyword string) []string {
+	if _, err := os.Stat(cfgPermutationsFile); err != nil {
+		log.Fatal(err)
+	}
+
+	jsondata, err := ioutil.ReadFile(cfgPermutationsFile)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	data := map[string]interface{}{}
+	dec := json.NewDecoder(strings.NewReader(string(jsondata)))
+	dec.Decode(&data)
+	jq := jsonq.NewQuery(data)
+
+	s3url, err := jq.String("s3_url")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var permutations []string
+
+	perms, err := jq.Array("permutations")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Our list of permutations
+	for i := range perms {
+		permutations = append(permutations, fmt.Sprintf(perms[i].(string), keyword, s3url))
+	}
 
 	return permutations
 }
@@ -527,14 +695,15 @@ func main() {
 		Init()
 
 		for i := range cfgKeywords {
+			fmt.Println(cfgKeywords[i])
 			dbQ.Put(cfgKeywords[i])
 		}
 
 		//log.Info("Starting to stream certs....")
-		go PermutateDomainRunner()
+		go PermutateKeywordRunner()
 
 		log.Info("Starting to process permutations....")
-		go CheckPermutations()
+		go CheckKeywordPermutations()
 
 		for {
 			// 3 second hard sleep; added because sometimes it's possible to switch exit = true
