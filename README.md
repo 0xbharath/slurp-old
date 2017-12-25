@@ -18,6 +18,7 @@ Enumerates S3 buckets manually or via certstream
     - Punycode support for internationalized domains (S3 doesn't allow internationalized buckets; so this app just notifies and skips (certstream) or exits (manual mode))
 - Domain mode so that you can test individual domains.
 - **New** Keywords mode so that you can attempt enumeration based on keywords.
+- **New** Supports a list of domains now.
 - Certstream mode so that you can enumerate s3 buckets in real time.
 - Colorized output for visual grep ;)
 - Currently generates over 400 permutations per domain
