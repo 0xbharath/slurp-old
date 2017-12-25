@@ -659,6 +659,7 @@ func main() {
 
 				if result.Root == "" || result.Tld == "" {
 					log.Errorf("%s is not a valid domain", punyCfgDomain)
+					continue
 				}
 
 				d := Domain{
@@ -670,6 +671,10 @@ func main() {
 
 				dbQ.Put(d)
 			}
+		}
+
+		if dbQ.Len() == 0 {
+			log.Fatal("Invalid domains format, see help")
 		}
 
 		//log.Info("Starting to process queue....")
@@ -707,6 +712,10 @@ func main() {
 			if len(cfgKeywords[i]) != 0 {
 				dbQ.Put(cfgKeywords[i])
 			}
+		}
+
+		if dbQ.Len() == 0 {
+			log.Fatal("Invalid keywords format, see help")
 		}
 
 		//log.Info("Starting to stream certs....")
