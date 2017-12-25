@@ -84,8 +84,8 @@ var certstreamCmd = &cobra.Command{
 
 var domainCmd = &cobra.Command{
 	Use:   "domain",
-	Short: "Takes a domain as input and attempts to find its s3 buckets",
-	Long:  "Takes a domain as input and attempts to find its s3 buckets",
+	Short: "Uses a list of domains to enumerate s3 buckets",
+	Long:  "Uses a list of domains to enumerate s3 buckets",
 	Run: func(cmd *cobra.Command, args []string) {
 		action = "DOMAIN"
 	},
@@ -93,8 +93,8 @@ var domainCmd = &cobra.Command{
 
 var keywordCmd = &cobra.Command{
 	Use:   "keyword",
-	Short: "Takes keywords as input and attempts to find s3 buckets",
-	Long:  "Takes keywords as input and attempts to find s3 buckets",
+	Short: "Uses a list of keywords to enumerate s3 buckets",
+	Long:  "Uses a list of keywords to enumerate s3 buckets",
 	Run: func(cmd *cobra.Command, args []string) {
 		action = "KEYWORD"
 	},
@@ -107,10 +107,10 @@ var cfgDomains []string
 func setFlags() {
 	certstreamCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 
-	domainCmd.PersistentFlags().StringSliceVarP(&cfgDomains, "target", "t", []string{}, "Domains to enumerate s3 buckets with")
+	domainCmd.PersistentFlags().StringSliceVarP(&cfgDomains, "target", "t", []string{}, "Domains to enumerate s3 buckets; format: example1.com,example2.com,example3.com")
 	domainCmd.PersistentFlags().StringVar(&cfgPermutationsFile, "permutations", "./permutations.json", "Permutations file location")
 
-	keywordCmd.PersistentFlags().StringSliceVarP(&cfgKeywords, "target", "t", []string{}, "List of keywords to search for bucket permutations for")
+	keywordCmd.PersistentFlags().StringSliceVarP(&cfgKeywords, "target", "t", []string{}, "List of keywords to enumerate s3; format: target1,target2,target3")
 }
 
 // PreInit initializes goroutine concurrency and initializes cobra
