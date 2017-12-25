@@ -59,6 +59,11 @@ type PermutatedDomain struct {
 	Domain      Domain
 }
 
+type Keyword struct {
+	Permutation string
+	Keyword     string
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "slurp",
 	Short: "slurp",
@@ -271,7 +276,10 @@ func PermutateKeywordRunner() {
 		pd := PermutateKeyword(d)
 
 		for p := range pd {
-			permutatedQ.Put(pd[p])
+			permutatedQ.Put(Keyword{
+				Keyword:     d,
+				Permutation: pd[p],
+			})
 		}
 	}
 }
@@ -409,8 +417,7 @@ func CheckKeywordPermutations() {
 			},
 		}
 
-		go func(pd string) {
-			//log.Info(pd)
+		go func(pd Keyword) {
 			req, err := http.NewRequest("GET", "http://s3-1-w.amazonaws.com", nil)
 
 			if err != nil {
@@ -423,7 +430,7 @@ func CheckKeywordPermutations() {
 				return
 			}
 
-			req.Host = pd
+			req.Host = pd.Permutation
 			//req.Header.Add("Host", host)
 
 			resp, err1 := client.Do(req)
@@ -472,12 +479,12 @@ func CheckKeywordPermutations() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					log.Infof("\033[32m\033[1mPUBLIC\033[39m\033[0m %s", loc)
+					log.Infof("\033[32m\033[1mPUBLIC\033[39m\033[0m %s (\033[33m%s\033[39m)", loc, pd.Keyword)
 				} else if resp.StatusCode == 403 {
-					log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m http://%s", pd)
+					log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m %s (\033[33m%s\033[39m)", loc, pd.Keyword)
 				}
 			} else if resp.StatusCode == 403 {
-				log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m http://%s", pd)
+				log.Infof("\033[31m\033[1mFORBIDDEN\033[39m\033[0m http://%s (\033[33m%s\033[39m)", pd.Permutation, pd.Keyword)
 			} else if resp.StatusCode == 503 {
 				log.Info("too fast")
 				permutatedQ.Put(pd)
@@ -486,7 +493,7 @@ func CheckKeywordPermutations() {
 			checked = checked + 1
 
 			<-sem
-		}(dom[0].(string))
+		}(dom[0].(Keyword))
 	}
 }
 
@@ -695,8 +702,9 @@ func main() {
 		Init()
 
 		for i := range cfgKeywords {
-			fmt.Println(cfgKeywords[i])
-			dbQ.Put(cfgKeywords[i])
+			if len(cfgKeywords[i]) != 0 {
+				dbQ.Put(cfgKeywords[i])
+			}
 		}
 
 		//log.Info("Starting to stream certs....")
