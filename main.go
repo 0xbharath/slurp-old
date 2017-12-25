@@ -87,7 +87,7 @@ var domainCmd = &cobra.Command{
 	Short: "Takes a domain as input and attempts to find its s3 buckets",
 	Long:  "Takes a domain as input and attempts to find its s3 buckets",
 	Run: func(cmd *cobra.Command, args []string) {
-		action = "MANUAL"
+		action = "DOMAIN"
 	},
 }
 
@@ -638,7 +638,7 @@ func main() {
 
 			time.Sleep(1 * time.Second)
 		}
-	case "MANUAL":
+	case "DOMAIN":
 		Init()
 
 		for i := range cfgDomains {
